@@ -1,0 +1,6 @@
+# REQUIRED DEPENDENCIES
+matplotlib>=3.5.0
+
+# OPTIONAL DEPENDENCIES (for reference Kyber512 comparison)
+# Note: pqcrypto is a pure Python implementation, easy to install on Windows
+pqcrypto>=0.1.1

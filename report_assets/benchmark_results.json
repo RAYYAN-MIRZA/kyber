@@ -1,0 +1,37 @@
+{
+  "parameters": {
+    "custom_kyber": {
+      "n": 256,
+      "q": 3329,
+      "k": 2,
+      "eta1": 3,
+      "eta2": 2,
+      "input_bytes": 32,
+      "note": "Educational scratch implementation with naive polynomial multiplication."
+    },
+    "reference_kyber512": {
+      "algorithm": "ML-KEM-512",
+      "n": 256,
+      "q": 3329,
+      "k": 2,
+      "shared_secret_bytes": 32,
+      "note": "pqcrypto reference KEM; internal randomness/noise is not caller-controlled."
+    }
+  },
+  "custom_kyber": {
+    "KeyGen": 32.06866800028365,
+    "Encrypt": 49.539548995671794,
+    "Decrypt": 15.775003000162542
+  },
+  "reference_kyber512": {
+    "KeyGen": 0.17870299925561994,
+    "Encrypt": 0.17043399973772466,
+    "Decrypt": 0.05056199966929853
+  },
+  "performance_ratio": {
+    "KeyGen": 179.4523210794692,
+    "Encrypt": 290.66705629103694,
+    "Decrypt": 311.9932578485655
+  },
+  "overall_ratio": 243.64139095157475
+}

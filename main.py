@@ -1,21 +1,8 @@
-# main.py
+#!/usr/bin/env python3
+"""Top-level entrypoint for the custom Kyber demo."""
 
-from kyber import keygen, encrypt, decrypt
-from utils import message_to_poly, poly_to_message
+from custom_kyber.main import main
 
-def main():
-    public_key, secret_key = keygen()
-
-    message = "HELLO"
-    message_poly = message_to_poly(message)
-
-    ciphertext = encrypt(public_key, message_poly)
-
-    decrypted_poly = decrypt(secret_key, ciphertext)
-    decrypted_message = poly_to_message(decrypted_poly)
-
-    print("Original Message:", message)
-    print("Decrypted Message:", decrypted_message)
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
