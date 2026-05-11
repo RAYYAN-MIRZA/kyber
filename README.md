@@ -99,7 +99,12 @@ Provides a reference wrapper around `pqcrypto` for ML-KEM-512 comparison during 
 - Python 3.7 or higher
 - `pqcrypto` is optional for the reference benchmark
 - `matplotlib` is optional for chart generation
+- 
+Install dependencies:
 
+```bash
+pip install -r requirements.txt
+```
 ### Run the Demo
 
 From the repository root:
