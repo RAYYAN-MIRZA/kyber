@@ -29,6 +29,15 @@ def check_structure():
         "custom_kyber/main.py",
         "custom_kyber/kyber.py",
         "custom_kyber/utils.py",
+        "custom_kyber/ml_kem512/__init__.py",
+        "custom_kyber/ml_kem512/params.py",
+        "custom_kyber/ml_kem512/reduce_ops.py",
+        "custom_kyber/ml_kem512/ntt.py",
+        "custom_kyber/ml_kem512/cbd.py",
+        "custom_kyber/ml_kem512/symmetric.py",
+        "custom_kyber/ml_kem512/polynomial.py",
+        "custom_kyber/ml_kem512/indcpa.py",
+        "custom_kyber/ml_kem512/kem.py",
         "custom_kyber/config.py",
         "custom_kyber/performance/__init__.py",
         "custom_kyber/performance/measure_our_kyber.py",
@@ -93,9 +102,13 @@ def check_kyber_imports():
     print("\n📚 Checking custom Kyber imports...")
 
     try:
-        from custom_kyber.kyber import keygen, encrypt, decrypt
-        from custom_kyber.utils import message_to_poly, poly_to_message
-        print("  ✓ Custom Kyber modules importable")
+        from custom_kyber.kyber import decapsulate, encapsulate, generate_keypair
+
+        pk, sk = generate_keypair()
+        ct, ss1 = encapsulate(pk)
+        ss2 = decapsulate(sk, ct)
+        assert ss1 == ss2
+        print("  ✓ Custom ML-KEM-512 modules importable (round-trip OK)")
         return True
     except ImportError as e:
         print(f"  ✗ Error importing Kyber: {e}")

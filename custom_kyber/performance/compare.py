@@ -108,11 +108,10 @@ def print_summary(our_timings: Dict, reference_timings: Dict):
     
     if overall_ratio > 1:
         print(f"  Note: Custom implementation is {overall_ratio:.2f}x slower than reference.")
-        print("  This is expected for a scratch educational implementation using naive polynomial multiplication.")
+        print("  Both sides run full ML-KEM-512 (encaps/decaps); the scratch Python+NTT path is slower than native PQClean.")
     else:
         print(f"  Note: Custom implementation is {1/overall_ratio:.2f}x faster than reference.")
-        print("  This can happen because the custom code is still an educational PKE-style model,")
-        print("  while pqcrypto runs the full ML-KEM-512 KEM with production serialization and checks.")
+        print("  Unusual for this workload; re-run with more iterations or check system load.")
 
 
 if __name__ == "__main__":
