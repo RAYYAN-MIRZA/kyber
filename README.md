@@ -1,110 +1,136 @@
-# ML-KEM Kyber Simplified Implementation and Benchmark Comparison
+# ML-KEM-512 Kyber Implementation and Benchmark Suite
 
-A simplified educational implementation of the **ML-KEM Kyber** post-quantum cryptographic key encapsulation mechanism. This project demonstrates the core concepts of Kyber cryptography with simplified polynomial operations and small parameters for learning and benchmarking purposes.
+A from-scratch educational Python implementation of **ML-KEM-512**, the Kyber512 parameter set standardized by NIST as **ML-KEM** in FIPS 203.
 
-It also includes a benchmark suite that compares the custom Python Kyber implementation against a reference **ML-KEM-512** implementation from `pqcrypto`, so you can see the performance gap directly.
+The current custom implementation is a byte-level key encapsulation mechanism (KEM): it generates an ML-KEM-512 keypair, encapsulates a 32-byte shared secret to a public key, and decapsulates that shared secret with the secret key. The project also includes benchmark tooling that compares the custom Python implementation against the `pqcrypto` ML-KEM-512 implementation.
 
-## About ML-KEM Kyber
+> Educational note: this repository is for learning, inspection, and benchmarking. Do not use it for production cryptography.
 
-**Kyber** is a lattice-based key encapsulation mechanism (KEM) standardized as **ML-KEM** (Module-Lattice-Based Key-Encapsulation Mechanism) by NIST. It is designed to resist attacks from quantum computers, making it an important part of post-quantum cryptography.
+## What This Implements
 
-### Key Features of Kyber
+The custom implementation now exposes the standard KEM workflow:
 
-- **Lattice-based security**: Based on the Module Learning With Errors (M-LWE) problem
-- **Post-quantum resistant**: Secure against known quantum algorithms
-- **Efficient**: Fast key generation, encapsulation, and decapsulation
-- **Standardized**: Approved by NIST as part of Post-Quantum Cryptography (PQC)
+- `generate_keypair()` -> `(public_key, secret_key)`
+- `encapsulate(public_key)` -> `(ciphertext, shared_secret)`
+- `decapsulate(secret_key, ciphertext)` -> `shared_secret`
+
+The public wrapper is `custom_kyber/kyber.py`, while the implementation lives under `custom_kyber/ml_kem512/`.
+
+Implemented ML-KEM-512 sizes:
+
+| Item | Size |
+| --- | ---: |
+| Public key | 800 bytes |
+| Secret key | 1632 bytes |
+| Ciphertext | 768 bytes |
+| Shared secret | 32 bytes |
+
+Core parameters:
+
+| Parameter | Value |
+| --- | ---: |
+| `N` | 256 |
+| `Q` | 3329 |
+| `K` | 2 |
+| `ETA1` | 3 |
+| `ETA2` | 2 |
 
 ## Project Structure
 
 ```text
 kyber/
-├── main.py                  # Root entrypoint for the demo
-├── verify_setup.py          # Root setup/verification script
-├── benchmark_runner.py      # Benchmark pipeline entrypoint
-├── custom_kyber/
-│   ├── __init__.py
-│   ├── config.py           # Configuration parameters
-│   ├── kyber.py            # Core Kyber-style functions
-│   ├── main.py             # Demo logic
-│   ├── utils.py            # Polynomial and message helpers
-│   └── performance/
-│       ├── __init__.py
-│       ├── compare.py
-│       ├── measure_our_kyber.py
-│       └── visualize.py
-├── reference_kyber/
-│   ├── __init__.py
-│   └── kyber_reference.py  # pqcrypto-backed ML-KEM-512 reference
-├── report_assets/
-└── requirements.txt
+|-- main.py                         # Root entrypoint for the custom KEM demo
+|-- verify_setup.py                 # Setup, import, and round-trip verification
+|-- benchmark_runner.py             # Benchmark pipeline entrypoint
+|-- requirements.txt
+|-- custom_kyber/
+|   |-- __init__.py
+|   |-- config.py                   # Shared parameters and byte-size constants
+|   |-- kyber.py                    # Public custom ML-KEM-512 wrapper API
+|   |-- main.py                     # Demo: keygen, encapsulate, decapsulate
+|   |-- utils.py                    # Legacy/simple polynomial helpers
+|   |-- verify_setup.py             # Compatibility wrapper for root verifier
+|   |-- ml_kem512/
+|   |   |-- __init__.py             # Exports the ML-KEM-512 public API
+|   |   |-- params.py               # ML-KEM-512 constants and byte sizes
+|   |   |-- kem.py                  # CCA KEM: keypair, encaps, decaps
+|   |   |-- indcpa.py               # CPA encryption core
+|   |   |-- polynomial.py           # Polynomial/polyvec encode, compress, arithmetic
+|   |   |-- ntt.py                  # Number theoretic transform operations
+|   |   |-- cbd.py                  # Centered binomial noise sampling
+|   |   |-- reduce_ops.py           # Montgomery/Barrett reduction helpers
+|   |   `-- symmetric.py            # SHA3/SHAKE-based hash and XOF helpers
+|   `-- performance/
+|       |-- __init__.py
+|       |-- measure_our_kyber.py    # Custom implementation timings
+|       |-- compare.py              # Custom vs reference benchmark comparison
+|       `-- visualize.py            # JSON report and chart generation
+|-- reference_kyber/
+|   |-- __init__.py
+|   `-- kyber_reference.py          # pqcrypto-backed ML-KEM-512 reference wrapper
+`-- report_assets/                  # Generated benchmark reports/charts
 ```
 
-## Files Overview
-
-### `custom_kyber/config.py`
-Contains configuration parameters used by the custom implementation:
-- `Q = 3329`: Modulus used for polynomial coefficients
-- `N = 256`: Polynomial degree
-- `K = 2`: Module rank for the Kyber512-style structure
-- `ETA1` and `ETA2`: Noise parameters for sampling secrets and errors
-- `BENCHMARK_MESSAGE_BYTES`: Input size used in the benchmark suite
+## Implementation Overview
 
 ### `custom_kyber/kyber.py`
-Implements the three core functions:
-- **`keygen()`**: Generates a public/secret key pair
-  - Samples random polynomial matrix `A`
-  - Samples secret and error vectors `s` and `e`
-  - Computes public key output `t = A*s + e`
 
-- **`encrypt(public_key, message_poly)`**: Encrypts a message polynomial
-  - Uses the public key and a message polynomial
-  - Returns ciphertext components `(u, v)`
+This is the public import surface for the custom implementation. It re-exports the ML-KEM-512 API from `custom_kyber.ml_kem512`:
 
-- **`decrypt(secret_key, ciphertext)`**: Decrypts a ciphertext
-  - Uses the secret key and ciphertext components
-  - Returns a recovered message polynomial
+- `generate_keypair()`
+- `keypair_derand(coins)`
+- `encapsulate(public_key)`
+- `encapsulate_derand(public_key, coins)`
+- `decapsulate(secret_key, ciphertext)`
+- `PUBLICKEYBYTES`, `SECRETKEYBYTES`, `CIPHERTEXTBYTES`, `SSBYTES`
 
-### `custom_kyber/utils.py`
-Utility functions for polynomial operations and message conversion:
-- `poly_add()`: Addition of two polynomials
-- `poly_sub()`: Subtraction of two polynomials
-- `poly_mul()`: Negacyclic multiplication modulo `x^N + 1`
-- `random_poly()`: Generate a random polynomial with coefficients in `[0, Q)`
-- `noise_poly()`: Generate a noise polynomial with small coefficients
-- `message_to_poly()`: Convert a string or byte message to a polynomial
-- `poly_to_message()`: Convert a polynomial back to a string message
+### `custom_kyber/ml_kem512/kem.py`
 
-### `custom_kyber/main.py`
-Demonstrates the complete workflow:
-1. Generate a key pair
-2. Convert a message to a polynomial
-3. Encrypt the message with the public key
-4. Decrypt with the secret key
-5. Print the original and decrypted messages
+Implements the CCA-secure KEM layer:
 
-### `custom_kyber/performance/`
-Benchmarking and visualization helpers:
-- `measure_our_kyber.py`: Measures the custom implementation
-- `compare.py`: Compares the custom implementation with the reference KEM
-- `visualize.py`: Generates charts and JSON reports
+1. Generate or accept random coins.
+2. Build the IND-CPA keypair.
+3. Store the IND-CPA secret key, public key, hash of the public key, and fallback secret in the ML-KEM secret key.
+4. Encapsulate by deriving coins and a shared secret with SHA3/SHAKE helpers.
+5. Decapsulate by decrypting, re-encrypting for verification, and selecting the correct or fallback shared secret.
 
-### `reference_kyber/kyber_reference.py`
-Provides a reference wrapper around `pqcrypto` for ML-KEM-512 comparison during benchmarking.
+### `custom_kyber/ml_kem512/indcpa.py`
+
+Implements the CPA public-key encryption core used inside ML-KEM:
+
+- deterministic IND-CPA keypair generation
+- matrix generation with SHAKE128 rejection sampling
+- IND-CPA encryption of a 32-byte message
+- IND-CPA decryption back to a 32-byte message
+
+### `custom_kyber/ml_kem512/polynomial.py`
+
+Contains polynomial and vector operations used by the KEM:
+
+- byte encoding/decoding
+- compression/decompression
+- message-to-polynomial and polynomial-to-message conversion
+- NTT and inverse NTT wrappers
+- polynomial/vector addition, subtraction, reduction, and base multiplication
+
+### Other ML-KEM Modules
+
+- `params.py`: ML-KEM-512 constants and serialized byte lengths.
+- `ntt.py`: NTT, inverse NTT, and base multiplication primitives.
+- `cbd.py`: centered binomial distribution samplers for `ETA1` and `ETA2`.
+- `reduce_ops.py`: finite-field reduction helpers.
+- `symmetric.py`: SHA3-256, SHA3-512, SHAKE128, SHAKE256, and PRF/KDF helpers.
 
 ## How to Run
 
-### Prerequisites
-
-- Python 3.7 or higher
-- `pqcrypto` is optional for the reference benchmark
-- `matplotlib` is optional for chart generation
-- 
-Install dependencies:
+### Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
+
+`matplotlib` is used for benchmark charts. `pqcrypto` is used only for the optional reference comparison.
+
 ### Run the Demo
 
 From the repository root:
@@ -113,107 +139,91 @@ From the repository root:
 python main.py
 ```
 
-Expected output:
+Expected output shape:
 
 ```text
-Original Message: HELLO
-Decrypted Message: HELLO
+ML-KEM-512 (Kyber512) KEM demo
+  Public key:  800 bytes
+  Secret key:  1632 bytes
+  Ciphertext:  768 bytes
+  Shared key:  32 bytes (use with AES-GCM or similar after a KDF)
+  Match:       ... == ...
+  Demo XOR:    b'testing kyber'
 ```
 
-### Run the Setup Check
+The final XOR step is only a dependency-free demonstration that the shared secret can feed symmetric encryption. Real applications should use an authenticated cipher such as AES-GCM or ChaCha20-Poly1305 with a proper KDF.
+
+### Run Setup Verification
 
 ```bash
 python verify_setup.py
 ```
 
-### Run the Benchmark Suite
+This checks the expected file structure, optional dependencies, imports, and a KEM round trip.
+
+### Run Benchmarks
 
 ```bash
 python benchmark_runner.py
 ```
 
-This benchmark compares:
-
-- the custom Kyber implementation in `custom_kyber/`
-- the Python reference ML-KEM-512 wrapper in `reference_kyber/`
-
-You can also skip visualization if you only want timing output:
+Useful options:
 
 ```bash
+python benchmark_runner.py --iterations 25
 python benchmark_runner.py --no-visualization
+python benchmark_runner.py --output-dir report_assets
 ```
 
-## Modifying the Simulation
+The benchmark measures:
 
-You can edit `custom_kyber/main.py` to test different messages:
+- KeyGen: `generate_keypair()`
+- Encrypt: KEM encapsulation via `encapsulate(public_key)`
+- Decrypt: KEM decapsulation via `decapsulate(secret_key, ciphertext)`
+
+If `pqcrypto` is installed, the benchmark also compares against `pqcrypto.kem.ml_kem_512`. If it is unavailable, the custom implementation is still benchmarked and the reference comparison is skipped.
+
+## Programmatic Usage
 
 ```python
-message = "YOUR_MESSAGE_HERE"
+from custom_kyber.kyber import decapsulate, encapsulate, generate_keypair
+
+public_key, secret_key = generate_keypair()
+ciphertext, shared_secret_sender = encapsulate(public_key)
+shared_secret_receiver = decapsulate(secret_key, ciphertext)
+
+assert shared_secret_sender == shared_secret_receiver
 ```
 
-You can also adjust the parameters in `custom_kyber/config.py`:
+For deterministic tests, use the `_derand` helpers:
 
 ```python
-N = 16              # Increase polynomial degree
-Q = 7681            # Change modulus
-ETA1 = 2            # Reduce secret noise
-ETA2 = 1            # Reduce encryption noise
+from custom_kyber.kyber import encapsulate_derand, keypair_derand
+
+public_key, secret_key = keypair_derand(b"\x00" * 64)
+ciphertext, shared_secret = encapsulate_derand(public_key, b"\x01" * 32)
 ```
 
-## Simplified Implementation Notes
+## Notes on the Older Toy Helpers
 
-This implementation is a simplified educational version and differs from the full ML-KEM standard:
+`custom_kyber/utils.py` still contains simple polynomial helper functions from the earlier educational version. The active ML-KEM-512 flow does not use the old string-message encrypt/decrypt demo. The current demo and benchmarks operate on the KEM API and fixed-size byte strings.
 
-1. **Educational arithmetic**: The custom implementation is designed to be easy to inspect and benchmark
-2. **Smaller scope than production KEMs**: It keeps the polynomial and module structure approachable
-3. **No production serialization**: It does not implement full byte-level encodings used in deployed libraries
-4. **No CPA-to-CCA conversion**: The custom flow is intentionally simplified for learning
-5. **Simplified message handling**: Message conversion is basic and intended for demonstration
+## Benchmark Reports
 
-## Mathematical Concepts
+Generated benchmark assets are written to `report_assets/` by default:
 
-### Key Generation
+- `benchmark_results.json`
+- `performance.png` when visualization is enabled
 
-```text
-A <- R(Q)                    # Random polynomial matrix
-s <- eta1                    # Secret polynomial vector
-e <- eta1                    # Error polynomial vector
-t := A*s + e                 # Public key component
-```
-
-### Encryption
-
-```text
-r <- eta1                    # Random vector
-e1 <- eta2                   # Error vector
-e2 <- eta2                   # Error polynomial
-u := A^T*r + e1              # Ciphertext component 1
-v := t*r + e2 + m            # Ciphertext component 2
-```
-
-### Decryption
-
-```text
-m := v - u*s                 # Recover message
-```
+These files are generated outputs and can be refreshed by re-running `benchmark_runner.py`.
 
 ## Learning Resources
 
-- [NIST ML-KEM Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf)
-- [Kyber Official Specification](https://pq-crystals.org/kyber/)
-- [Post-Quantum Cryptography](https://csrc.nist.gov/projects/post-quantum-cryptography/)
+- [NIST FIPS 203: ML-KEM Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf)
+- [CRYSTALS-Kyber](https://pq-crystals.org/kyber/)
+- [NIST Post-Quantum Cryptography Project](https://csrc.nist.gov/projects/post-quantum-cryptography)
+- [Open Quantum Safe liboqs](https://github.com/open-quantum-safe/liboqs)
 
 ## Disclaimer
 
-This is an educational implementation for learning purposes only. It is not suitable for production use due to:
-
-- Simplified design choices
-- Lack of production hardening
-- No full CCA security conversion
-- Educational-quality polynomial operations
-
-For real-world applications, use well-tested, audited implementations like [liboqs](https://github.com/open-quantum-safe/liboqs) or other NIST-approved libraries.
-
-## Author Notes
-
-This project demonstrates the core mathematical operations and flow of ML-KEM Kyber in a simplified, easy-to-understand manner. It is intended for students and learners exploring post-quantum cryptography.
+This project is an educational implementation. It is not audited, hardened, or intended for real-world cryptographic deployment. For production systems, use a maintained, audited implementation from a trusted cryptographic library.
