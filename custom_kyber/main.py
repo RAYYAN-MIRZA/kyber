@@ -25,7 +25,7 @@ def main() -> None:
     print(f"  Match:       {shared_secret_encap.hex()[:32]}… == {shared_secret_decap.hex()[:32]}…")
 
     # Pedagogical “hybrid” step without extra deps: derive 32-byte stream key via SHA-256.
-    demo_msg = b"hello supervisor"
+    demo_msg = b"testing kyber"
     k = hashlib.sha256(shared_secret_encap + b"demo").digest()
     enc = bytes(m ^ k[i % len(k)] for i, m in enumerate(demo_msg))
     dec = bytes(c ^ k[i % len(k)] for i, c in enumerate(enc))
