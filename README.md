@@ -2,7 +2,7 @@
 
 A from-scratch educational Python implementation of **ML-KEM-512**, the Kyber512 parameter set standardized by NIST as **ML-KEM** in FIPS 203.
 
-The current custom implementation is a byte-level key encapsulation mechanism (KEM): it generates an ML-KEM-512 keypair, encapsulates a 32-byte shared secret to a public key, and decapsulates that shared secret with the secret key. The project also includes benchmark tooling that compares the custom Python implementation against the `pqcrypto` ML-KEM-512 implementation.
+The current custom implementation is a byte-level key encapsulation mechanism (KEM): it generates an ML-KEM-512 keypair, encapsulates a 32-byte shared secret to a public key, and decapsulates that shared secret with the secret key. The demo then derives an AES-256 key from that shared secret and uses AES-GCM to encrypt the actual message. The project also includes benchmark tooling that compares the custom Python implementation against the `pqcrypto` ML-KEM-512 implementation.
 
 > Educational note: this repository is for learning, inspection, and benchmarking. Do not use it for production cryptography.
 
@@ -142,16 +142,27 @@ python main.py
 Expected output shape:
 
 ```text
-ML-KEM-512 (Kyber512) KEM demo
+ML-KEM-512 (Kyber512) + AES-GCM demo
+  Flow:        ML-KEM -> HKDF-SHA256 -> AES-256-GCM
   Public key:  800 bytes
   Secret key:  1632 bytes
-  Ciphertext:  768 bytes
-  Shared key:  32 bytes (use with AES-GCM or similar after a KDF)
-  Match:       ... == ...
-  Demo XOR:    b'testing kyber'
+  KEM ct:      768 bytes
+  ML-KEM ss:   32 bytes
+  AES key:     32 bytes
+  AES nonce:   12 bytes
+  AES ct+tag:  ...
+  Secret ok:   ... == ...
+  Message:     ML-KEM establishes the key; AES-GCM encrypts the real message.
+  NTT/Mont:    polynomial multiplication uses NTT butterflies and Montgomery reduction
 ```
 
-The final XOR step is only a dependency-free demonstration that the shared secret can feed symmetric encryption. Real applications should use an authenticated cipher such as AES-GCM or ChaCha20-Poly1305 with a proper KDF.
+This is a KEM-DEM style workflow:
+
+1. ML-KEM establishes the shared secret.
+2. HKDF-SHA256 derives a symmetric AES-256 key from that secret.
+3. AES-GCM encrypts and authenticates the actual message.
+
+ML-KEM does not replace AES. It replaces classical key-establishment mechanisms such as RSA key exchange or Diffie-Hellman. AES remains the efficient symmetric encryption layer.
 
 ### Run Setup Verification
 
@@ -187,13 +198,37 @@ If `pqcrypto` is installed, the benchmark also compares against `pqcrypto.kem.ml
 
 ```python
 from custom_kyber.kyber import decapsulate, encapsulate, generate_keypair
+from custom_kyber.main import derive_aes_key
 
 public_key, secret_key = generate_keypair()
 ciphertext, shared_secret_sender = encapsulate(public_key)
 shared_secret_receiver = decapsulate(secret_key, ciphertext)
 
 assert shared_secret_sender == shared_secret_receiver
+
+aes_key_sender = derive_aes_key(shared_secret_sender)
+aes_key_receiver = derive_aes_key(shared_secret_receiver)
+assert aes_key_sender == aes_key_receiver
 ```
+
+## Supervisor Explanation
+
+The project follows the real ML-KEM plus AES architecture:
+
+```text
+Bob:   ML-KEM KeyGen        -> public key pk, secret key sk
+Alice: ML-KEM Encaps(pk)    -> KEM ciphertext ct, shared secret K
+Bob:   ML-KEM Decaps(sk,ct) -> same shared secret K
+Both:  HKDF-SHA256(K)       -> AES-256 key
+Alice: AES-GCM encrypts the actual message
+Bob:   AES-GCM decrypts the actual message
+```
+
+Inside ML-KEM, the expensive polynomial arithmetic is accelerated with NTT. The NTT implementation uses butterfly operations, and modular multiplication uses Montgomery reduction. In this project those pieces live in:
+
+- `custom_kyber/ml_kem512/ntt.py`
+- `custom_kyber/ml_kem512/reduce_ops.py`
+- `custom_kyber/ml_kem512/polynomial.py`
 
 For deterministic tests, use the `_derand` helpers:
 
