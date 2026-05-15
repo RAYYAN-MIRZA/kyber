@@ -1,4 +1,5 @@
 # REQUIRED DEPENDENCIES
+cryptography>=42.0.0
 matplotlib>=3.5.0
 
 # OPTIONAL DEPENDENCIES (for reference Kyber512 comparison)
